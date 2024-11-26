@@ -27,7 +27,7 @@ app.use((req, res, next) => {
 
 
 
-app.get('/', (req, res) => {
+app.get('/test', (req, res) => {
   i++;
   const redirectUrl = list[i % list.length];
   
