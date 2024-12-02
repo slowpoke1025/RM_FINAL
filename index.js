@@ -53,6 +53,13 @@ app.get("/res", (req, res) => {
   res.json(result);
 });
 
+app.get("/clear", (req, res) => {
+  for (let i = 0; i < clicks.length; i++) {
+    clicks[i] = 0;
+  }
+  res.send("Clear");
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
