@@ -1,5 +1,7 @@
 const express = require("express");
 const path = require("path");
+// const cookieParser = require("cookie-parser");
+const session = require("express-session");
 
 const app = express();
 
@@ -9,7 +11,7 @@ const list = [
   "https://www.surveycake.com/s/DYxaX",
   "https://www.surveycake.com/s/PXAwM",
   "https://www.surveycake.com/s/DYxGe",
-  // "https://www.surveycake.com/s/og7N2",
+  //   "https://www.surveycake.com/s/og7N2",
 ];
 
 const clicks = [0, 0, 0, 0];
@@ -23,27 +25,54 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.set("trust proxy", true);
 
+// app.use(cookieParser("your-secret-key"));
+
 // Middleware to log incoming requests
+
+app.use(
+  session({
+    secret: "your-secret-key", // Replace with a strong secret
+    resave: false, // Avoid resaving unchanged sessions
+    saveUninitialized: false, // Avoid saving empty sessions
+    cookie: {
+      httpOnly: true, // Prevent client-side access to the cookie
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    },
+  })
+);
+
 app.use((req, res, next) => {
-  const logEntry = {
-    url: req.url,
-    ip: req.ip,
-    timestamp: new Date(),
-  };
-  logs.push(logEntry); // Save log entry
+  if (req.url == "/test") {
+    const logEntry = {
+      url: req.url,
+      ip: req.ip,
+      timestamp: new Date(),
+    };
+    logs.push(logEntry); // Save log entry
+  }
+
   console.log(`\nIncoming request: ${req.url}\n`);
   console.log(`IP: ${req.ip}`);
   next();
 });
 
 app.get("/test", (req, res) => {
-  i++;
-  const index = i % list.length;
-  const redirectUrl = list[index];
+  let index, redirectUrl;
+  if (req.session.index == null) {
+    ++i;
+    index = i % list.length;
+    redirectUrl = list[index];
+    req.session.index = index;
+    ++clicks[index];
+  } else {
+    index = req.session.index;
+    redirectUrl = list[index];
+  }
 
-  res.render("redirect", { redirectUrl, i: i % list.length });
+  res.render("redirect", { redirectUrl });
   console.log(`url: ${redirectUrl}`);
-  console.log(`${index}' click: ${++clicks[index]}`);
+  console.log(`${index}' click: ${clicks[index]}`);
   console.log(`total click: ${i + 1}`);
 });
 

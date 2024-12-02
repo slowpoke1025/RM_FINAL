@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Logs</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    .section-title {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Request Logs</h1>
+  
+  <h2 class="section-title">Click Counts by Link</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>URL</th>
+        <th>Clicks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% linksData.forEach((link, index) => { %>
+        <tr>
+          <td><%= index + 1 %></td>
+          <td><a href="<%= link.url %>" target="_blank"><%= link.url %></a></td>
+          <td><%= link.clicks %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">Request Logs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Timestamp</th>
+        <th>IP Address</th>
+        <th>URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% logs.forEach((log, index) => { %>
+        <tr>
+          <td><%= index + 1 %></td>
+          <td><%= log.timestamp.toLocaleString() %></td>
+          <td><%= log.ip %></td>
+          <td><%= log.url %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</body>
+</html>

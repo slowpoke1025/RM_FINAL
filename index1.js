@@ -5,46 +5,51 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+// const list = [
+//   "https://tw.portal-pokemon.com/play/pokedex/0001",
+//   "https://tw.portal-pokemon.com/play/pokedex/0004",
+//   "https://tw.portal-pokemon.com/play/pokedex/0007",
+//   "https://tw.portal-pokemon.com/play/pokedex/0025"
+// ]
+
 const list = [
   "https://www.surveycake.com/s/DYxaX",
   "https://www.surveycake.com/s/PXAwM",
   "https://www.surveycake.com/s/DYxGe",
-  // "https://www.surveycake.com/s/og7N2",
+  "https://www.surveycake.com/s/og7N2",
 ];
 
+const record = {};
 const clicks = [0, 0, 0, 0];
 
-let i = -1;
-
-// Store logs
-const logs = [];
+let i = 0;
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.set("trust proxy", true);
 
-// Middleware to log incoming requests
 app.use((req, res, next) => {
-  const logEntry = {
-    url: req.url,
-    ip: req.ip,
-    timestamp: new Date(),
-  };
-  logs.push(logEntry); // Save log entry
-  console.log(`\nIncoming request: ${req.url}\n`);
-  console.log(`IP: ${req.ip}`);
+  console.log(`\nIncoming request: ${req.url}`);
+  console.log(`IP: ${req.ip}\n`);
   next();
 });
 
 app.get("/test", (req, res) => {
-  i++;
-  const index = i % list.length;
-  const redirectUrl = list[index];
+  let index, redirectUrl;
+  if (record[req.ip] == null) {
+    index = i % list.length;
+    record[req.ip] = index;
+    console.log(record);
+    ++i;
+  } else {
+    index = record[req.ip];
+  }
+  redirectUrl = list[index];
 
-  res.render("redirect", { redirectUrl, i: i % list.length });
+  res.render("redirect", { redirectUrl });
   console.log(`url: ${redirectUrl}`);
   console.log(`${index}' click: ${++clicks[index]}`);
-  console.log(`total click: ${i + 1}`);
+  console.log(`total click: ${i}`);
 });
 
 app.get("/res", (req, res) => {
@@ -63,17 +68,7 @@ app.get("/clear", (req, res) => {
   for (let i = 0; i < clicks.length; i++) {
     clicks[i] = 0;
   }
-  logs.length = 0; // Clear logs
   res.send("Clear");
-});
-
-app.get("/logs", (req, res) => {
-  const linksData = list.map((url, index) => ({
-    url,
-    clicks: clicks[index],
-  }));
-
-  res.render("logs", { logs, linksData });
 });
 
 app.listen(PORT, () => {
