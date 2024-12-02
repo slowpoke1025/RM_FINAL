@@ -14,9 +14,9 @@ const PORT = process.env.PORT || 3000;
 
 const list = [
   "https://www.surveycake.com/s/DYxaX",
-  "https://www.surveycake.com/s/1kl7x",
-  "https://www.surveycake.com/s/pgY4n",
-  "https://www.surveycake.com/s/ag1e4",
+  "https://www.surveycake.com/s/PXAwM",
+  "https://www.surveycake.com/s/DYxGe",
+  "https://www.surveycake.com/s/og7N2",
 ];
 const clicks = [0, 0, 0, 0];
 
