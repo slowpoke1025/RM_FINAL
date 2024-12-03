@@ -37,6 +37,7 @@ let Log = mongoose.model("Log", logSchema);
 // mongoose.disconnect().then((d) => {
 //   console.log("db close");
 // });
+
 const clicks = {};
 list.forEach((i) => {
   clicks[i.url] = 0;
