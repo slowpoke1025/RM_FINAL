@@ -1,6 +1,5 @@
 const express = require("express");
 const path = require("path");
-// const cookieParser = require("cookie-parser");
 const session = require("express-session");
 
 const app = express();
@@ -8,14 +7,17 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const list = [
-  //   "https://www.surveycake.com/s/DYxaX",
-  "https://www.surveycake.com/s/PXAwM",
-  //   "https://www.surveycake.com/s/DYxGe",
-  "https://www.surveycake.com/s/og7N2",
+  { url: "https://www.surveycake.com/s/DYxaX", status: "active" },
+  { url: "https://www.surveycake.com/s/PXAwM", status: "active" },
+  { url: "https://www.surveycake.com/s/DYxGe", status: "active" },
+  { url: "https://www.surveycake.com/s/og7N2", status: "active" },
 ];
 
-const clicks = [0, 0, 0, 0];
-
+// const clicks = [0, 0, 0, 0];
+const clicks = {};
+list.forEach((i) => {
+  clicks[i.url] = 0;
+});
 let i = -1;
 
 // Store logs
@@ -24,8 +26,6 @@ const logs = [];
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.set("trust proxy", true);
-
-// app.use(cookieParser("your-secret-key"));
 
 // Middleware to log incoming requests
 
@@ -59,51 +59,63 @@ app.use((req, res, next) => {
 
 app.get("/test", (req, res) => {
   let index, redirectUrl;
-  if (req.session.index == null) {
+  const activeList = list.filter((item) => item.status === "active");
+
+  if (req.session.url == null) {
     ++i;
-    index = i % list.length;
-    redirectUrl = list[index];
-    req.session.index = index;
-    ++clicks[index];
+    index = i % activeList.length;
+    redirectUrl = activeList[index].url;
+    req.session.url = redirectUrl;
+    ++clicks[redirectUrl];
   } else {
-    index = req.session.index;
-    redirectUrl = list[index];
+    redirectUrl = req.session.url;
   }
 
   res.render("redirect", { redirectUrl });
   console.log(`url: ${redirectUrl}`);
-  console.log(`${index}' click: ${clicks[index]}`);
+  console.log(`click: ${clicks[redirectUrl]}`);
   console.log(`total click: ${i + 1}`);
 });
 
-app.get("/res", (req, res) => {
-  const result = {};
-  let total = 0;
-  for (let i = 0; i < list.length; i++) {
-    result[i] = { url: list[i], click: clicks[i] };
-    total += clicks[i];
-  }
-  result["total"] = total;
-  console.log(result);
-  res.json(result);
-});
-
 app.get("/clear", (req, res) => {
-  for (let i = 0; i < clicks.length; i++) {
-    clicks[i] = 0;
+  for (let j = 0; j < list.length; j++) {
+    clicks[list.url] = 0;
   }
   logs.length = 0; // Clear logs
+  i = -1;
   res.send("Clear");
 });
 
 app.get("/logs", (req, res) => {
-  const linksData = list.map((url, index) => ({
-    url,
-    clicks: clicks[index],
+  const linksData = list.map((item, index) => ({
+    url: item.url,
+    status: item.status,
+    clicks: clicks[item.url],
   }));
 
   res.render("logs", { logs, linksData });
 });
+
+app.post(
+  "/update-status",
+  express.urlencoded({ extended: true }),
+  (req, res) => {
+    const { url, status } = req.body;
+
+    // Validate input
+    if (!url || !["active", "suspended"].includes(status)) {
+      return res.status(400).send("Invalid URL or status.");
+    }
+
+    const item = list.find((item) => item.url === url);
+    if (!item) {
+      return res.status(404).send("URL not found.");
+    }
+
+    item.status = status; // Update the status
+    res.redirect("/logs3"); // Redirect back to the logs page
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
