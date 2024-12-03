@@ -93,7 +93,7 @@ app.get("/logs", (req, res) => {
     clicks: clicks[item.url],
   }));
 
-  res.render("logs", { logs, linksData });
+  res.render("logs3", { logs, linksData });
 });
 
 app.post(
@@ -113,7 +113,7 @@ app.post(
     }
 
     item.status = status; // Update the status
-    res.redirect("/logs3"); // Redirect back to the logs page
+    res.redirect("/logs"); // Redirect back to the logs page
   }
 );
 
