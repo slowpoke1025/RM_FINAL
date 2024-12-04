@@ -60,6 +60,16 @@
       color: #0056b3;
       text-decoration: none;
     }
+    .link-input{
+      color: #0056b3;
+      /* outline: none; */
+      font-size: 1rem;
+      flex: 1;
+    }
+    .link-form a{
+      flex: 1;
+
+    }
     a:hover {
       text-decoration: underline;
     }
@@ -69,7 +79,12 @@
       background-color: #ffffcc;
       font-weight: bold;
     }
-
+    .highlight input{
+      font-weight: bold;
+    }
+    .link-edit.green{
+      background-color: #ffde00;
+    }
     /* Status Indicators */
     .status-indicator {
       display: flex;
@@ -86,8 +101,16 @@
       background-color: #28a745;
       animation: pulse 1.5s infinite;
     }
-    .status.suspended {
+    .status.suspended{
       background-color: #6c757d;
+    }
+
+    .link.suspended {
+      color: #6c757d; 
+    }
+    .link-form.suspended :is(.link, input){
+      color: #6c757d;
+      
     }
     @keyframes pulse {
       0%, 100% {
@@ -191,6 +214,15 @@
         padding: 5px 10px;
       }
     }
+
+    .link-form{
+      display: flex;
+      justify-content: space-between;
+      gap:1rem;
+    }
+    .hide{
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -212,7 +244,13 @@
       <% linksData.forEach((link, index) => { %>
         <tr class="<%= link.url === nextLink ? 'highlight' : '' %>">
           <td><%= index + 1 %></td>
-          <td><a href="<%= link.url %>" target="_blank"><%= link.url %></a></td>
+          <td>
+            <div action="" class="link-form <%= link.status === 'active' ? 'active' : 'suspended' %>">
+            <a class="link " href="<%= link.url %>" target="_blank" data-id="<%= index %>"><%= link.url %></a>
+            <input class="link-input hide" type="text" value="<%= link.url %>">
+            <button class="link-edit">EDIT</button>
+          </div>
+          </td>
           <td><%= link.clicks %></td>
           <td>
             <div class="status-indicator">
@@ -257,10 +295,70 @@
   <script>
     // Confirmation before clearing data
     function confirmClear() {
-      if (confirm("Are you sure you want to clear all data? This action cannot be undone.")) {
+      if (confirm("確定刪除資料？")) {
         window.location.href = '/clear'; // Replace with your desired URL or action
       }
     }
+
+    function updateURL(id, link, input){
+
+
+      const formData = new URLSearchParams();
+      formData.append('id', id);
+      formData.append('oldUrl', link.href);
+      formData.append('newUrl', input.value);
+
+
+       fetch('/update-url', {
+          method: 'POST',
+          body: formData.toString(),
+          headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+
+        })
+          .then((response) => {
+            if (response.ok) {
+              return response.text();
+            } else {
+              throw new Error('Failed to update URL');
+            }
+          })
+          .then((data) => {
+            link.textContent = link.href = input.value
+            window.location.href = '/logs';
+
+          })
+          .catch((error) => {
+            console.log(error)
+            alert(error.message);
+          });
+      
+    }
+    document.querySelectorAll(".link-form").forEach((element, id) => {
+      element.querySelector(".link-edit").addEventListener("click", e => {
+        let link = element.querySelector(".link")
+        link.classList.toggle("hide")
+        let input = element.querySelector(".link-input")
+        input.classList.toggle("hide")
+        if(e.target.textContent == "EDIT"){
+          input.value = link.href
+          e.target.textContent = "UPDATE"
+        }else{
+          e.target.textContent = "EDIT"
+          if(link.textContent != input.value) 
+            updateURL(id, link, input)
+        }
+        e.target.classList.toggle("green")
+
+      })
+    });
+    
+    
+    
+    
+    
+    
   </script>
 </body>
 </html>

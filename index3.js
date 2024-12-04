@@ -67,102 +67,164 @@ app.use(
 );
 
 app.use(async (req, res, next) => {
-  console.log(`\nIncoming request: ${req.url}\n`);
-  console.log(`IP: ${req.ip}`);
+  console.log(`\nIncoming request: ${req.url}`);
+  console.log(`IP: ${req.ip}\n`);
   next();
 });
 
 app.get("/test", async (req, res) => {
-  let index, redirectUrl;
-  const activeList = list.filter((item) => item.status === "active");
-
-  if (req.session.url == null) {
-    index = i % activeList.length;
-    redirectUrl = activeList[index].url;
-    req.session.url = redirectUrl;
-    ++clicks[redirectUrl];
-    ++i;
-  } else {
-    redirectUrl = req.session.url;
-  }
-
-  const logEntry = {
-    url: redirectUrl,
-    ip: req.ip,
-    timestamp: new Date(),
-  };
-  logs.push(logEntry); // Save log entry
   try {
-    const dbLog = new Log(logEntry);
-    await dbLog.save();
-    console.log("Log saved to MongoDB:", dbLog);
-  } catch (err) {
-    console.error("Error saving log:", err.toString());
-  }
+    let index, redirectUrl;
+    const activeList = list.filter((item) => item.status === "active");
 
-  res.render("redirect", { redirectUrl });
-  console.log(`url: ${redirectUrl}`);
-  console.log(`click: ${clicks[redirectUrl]}`);
-  console.log(`total click: ${totalClick()}`);
+    if (req.session.url == null) {
+      index = i % activeList.length;
+      redirectUrl = activeList[index]?.url;
+
+      if (!redirectUrl) {
+        return res.status(500).send("No active URLs available.");
+      }
+
+      req.session.url = redirectUrl;
+      clicks[redirectUrl] = (clicks[redirectUrl] || 0) + 1;
+      ++i;
+    } else {
+      redirectUrl = req.session.url;
+    }
+
+    const logEntry = {
+      url: redirectUrl,
+      ip: req.ip,
+      timestamp: new Date(),
+    };
+
+    try {
+      const dbLog = new Log(logEntry);
+      await dbLog.save();
+      console.log("Log saved to MongoDB:", dbLog);
+    } catch (err) {
+      console.error("Error saving log to MongoDB:", err.toString());
+    }
+
+    res.render("redirect", { redirectUrl });
+    console.log(`url: ${redirectUrl}`);
+    console.log(`click: ${clicks[redirectUrl]}`);
+    console.log(`total click: ${totalClick()}`);
+  } catch (err) {
+    console.error("Error in /test route:", err.toString());
+    res.status(500).send("An error occurred.");
+  }
 });
 
 app.get("/clear", async (req, res) => {
-  for (let j = 0; j < list.length; j++) {
-    clicks[list[j].url] = 0;
-  }
-  logs.length = 0; // Clear logs
-  i = 0;
-
   try {
-    // Delete all documents
-    const result = await Log.deleteMany({});
-    console.log(`${result.deletedCount} logs cleared from the collection.`);
-  } catch (err) {
-    console.error("Error clearing logs:", err.toString());
-  }
+    for (let j = 0; j < list.length; j++) {
+      clicks[list[j].url] = 0;
+    }
+    logs.length = 0; // Clear logs
+    i = 0;
 
-  res.redirect("/logs"); // Redirect back to the logs page
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err.toString());
+        return res.status(500).send("Failed to clear session.");
+      }
+      console.log("Session cleared.");
+    });
+
+    try {
+      const result = await Log.deleteMany({});
+      console.log(`${result.deletedCount} logs cleared from the collection.`);
+    } catch (err) {
+      console.error("Error clearing logs:", err.toString());
+    }
+
+    res.redirect("/logs");
+  } catch (err) {
+    console.error("Error in /clear route:", err.toString());
+    res.status(500).send("An error occurred.");
+  }
 });
 
 app.get("/logs", async (req, res) => {
-  const linksData = list.map((item, index) => ({
-    url: item.url,
-    status: item.status,
-    clicks: clicks[item.url],
-  }));
-  let _logs;
   try {
-    _logs = await Log.find().sort({ timestamp: -1 }).exec();
-  } catch (err) {
-    console.error("Error fetching logs:", err.toString());
-    _logs = logs;
-  }
-  const activeList = list.filter((item) => item.status === "active");
+    const linksData = list.map((item) => ({
+      url: item.url,
+      status: item.status,
+      clicks: clicks[item.url] || 0,
+    }));
 
-  let nextLink = activeList[i % activeList.length].url;
-  res.render("logs3", { logs: _logs, linksData, nextLink });
+    let _logs;
+    try {
+      _logs = await Log.find().sort({ timestamp: -1 }).exec();
+    } catch (err) {
+      console.error("Error fetching logs from MongoDB:", err.toString());
+      _logs = logs; // Fallback to in-memory logs
+    }
+
+    const activeList = list.filter((item) => item.status === "active");
+    const nextLink =
+      activeList[i % activeList.length]?.url || "No active links";
+
+    res.render("logs3", { logs: _logs, linksData, nextLink });
+  } catch (err) {
+    console.error("Error in /logs route:", err.toString());
+    res.status(500).send("An error occurred.");
+  }
 });
 
 app.post(
   "/update-status",
   express.urlencoded({ extended: true }),
   (req, res) => {
-    const { url, status } = req.body;
+    try {
+      const { url, status } = req.body;
 
-    // Validate input
-    if (!url || !["active", "suspended"].includes(status)) {
-      return res.status(400).send("Invalid URL or status.");
+      if (!url || !["active", "suspended"].includes(status)) {
+        return res.status(400).send("Invalid URL or status.");
+      }
+
+      const item = list.find((item) => item.url === url);
+      if (!item) {
+        return res.status(404).send("URL not found.");
+      }
+
+      item.status = status;
+      res.redirect("/logs");
+    } catch (err) {
+      console.error("Error in /update-status route:", err.toString());
+      res.status(500).send("An error occurred.");
     }
-
-    const item = list.find((item) => item.url === url);
-    if (!item) {
-      return res.status(404).send("URL not found.");
-    }
-
-    item.status = status; // Update the status
-    res.redirect("/logs"); // Redirect back to the logs page
   }
 );
+
+app.post("/update-url", express.urlencoded({ extended: true }), (req, res) => {
+  try {
+    const { oldUrl, newUrl } = req.body;
+
+    if (!newUrl || !/^https?:\/\/.+/.test(newUrl)) {
+      return res.status(400).send("Invalid URL.");
+    }
+
+    if (oldUrl === newUrl) {
+      return res.status(400).send("URLs are the same.");
+    }
+
+    const item = list.find((item) => item.url === oldUrl);
+    if (!item) {
+      return res.status(404).send("Original URL not found.");
+    }
+
+    item.url = newUrl;
+    clicks[newUrl] = clicks[oldUrl] || 0;
+    delete clicks[oldUrl];
+
+    res.redirect("/logs");
+  } catch (err) {
+    console.error("Error in /update-url route:", err.toString());
+    res.status(500).send("An error occurred.");
+  }
+});
 
 function totalClick() {
   return Object.values(clicks).reduce((sum, count) => sum + count);
