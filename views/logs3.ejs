@@ -213,6 +213,11 @@
         font-size: 12px;
         padding: 5px 10px;
       }
+      body .switch-box{
+        font-size: 12px;
+        top: 10px;
+      }
+   
     }
 
     .link-form{
@@ -223,10 +228,86 @@
     .hide{
       display: none;
     }
+
+
+     /* Toggle Switch Styles */
+
+     .switch-box{
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+     }
+     .switch {
+      position: relative;
+
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+    }
+
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #2196F3;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .slider.round {
+      border-radius: 34px;
+    }
+
+    .slider.round:before {
+      border-radius: 50%;
+    }
+
   </style>
 </head>
 <body>
-  <button class="clear-btn" onclick="confirmClear()">Clear Data</button>
+  <button class="clear-btn" onclick="confirmClear()">RESET</button>
+  <div class="switch-box">
+  <label class="switch">
+    <input type="checkbox" id="randomFlagToggle" <%= randomFlag ? 'checked' : '' %>>
+    <span class="slider round"></span>
+  </label>
+  <span>完全隨機</span>
+</div>
+
   
   <h1>問卷後台</h1>
   
@@ -242,7 +323,7 @@
     </thead>
     <tbody>
       <% linksData.forEach((link, index) => { %>
-        <tr class="<%= link.url === nextLink ? 'highlight' : '' %>">
+        <tr class="<%= !randomFlag && link.url === nextLink ? 'highlight' : '' %>">
           <td><%= index + 1 %></td>
           <td>
             <div action="" class="link-form <%= link.status === 'active' ? 'active' : 'suspended' %>">
@@ -270,7 +351,7 @@
     </tbody>
   </table>
 
-  <h2>Request Logs</h2>
+  <h2>Redirect Logs</h2>
   <table>
     <thead>
       <tr>
@@ -321,7 +402,7 @@
             if (response.ok) {
               return response.text();
             } else {
-              throw new Error('Failed to update URL');
+              throw new Error('Invalid URL / Failed to update URL');
             }
           })
           .then((data) => {
@@ -330,11 +411,34 @@
 
           })
           .catch((error) => {
-            console.log(error)
             alert(error.message);
           });
       
     }
+
+    document.getElementById('randomFlagToggle').addEventListener('change', function () {
+      const isChecked = this.checked;
+
+      fetch('/toggle-random-flag', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ randomFlag: isChecked }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Failed to update random flag');
+          }
+          return window.location.reload()
+        })
+        .catch((error) => {
+          console.error(error);
+          alert(error.message);
+          this.checked = !this.checked
+        });
+    });
+
     document.querySelectorAll(".link-form").forEach((element, id) => {
       element.querySelector(".link-edit").addEventListener("click", e => {
         let link = element.querySelector(".link")

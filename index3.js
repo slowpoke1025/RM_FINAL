@@ -13,30 +13,8 @@ const list = [
   { url: "https://www.surveycake.com/s/og7N2", status: "active" },
 ];
 
-const mongoose = require("mongoose");
-const uri =
-  "mongodb+srv://slowpoke:ZyjFXQIU1pq2uOee@scrapy.dhxbc.mongodb.net/?retryWrites=true&w=majority&appName=Scrapy";
-
-mongoose
-  .connect(uri)
-  .then(() => {
-    const db = mongoose.connection.useDb("rm");
-    console.log("Connected to MongoDB!");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err.toString());
-  });
-
-const logSchema = new mongoose.Schema({
-  url: { type: String, required: true },
-  ip: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-});
-let Log = mongoose.model("Log", logSchema);
-
-// mongoose.disconnect().then((d) => {
-//   console.log("db close");
-// });
+const { connectToDatabase, addLog, clearLogs, getLogs } = require("./db");
+connectToDatabase();
 
 const clicks = {};
 list.forEach((i) => {
@@ -44,18 +22,16 @@ list.forEach((i) => {
 });
 let i = 0;
 
-// Store logs
 const logs = [];
+let randomFlag = false;
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.set("trust proxy", true);
 
-// Middleware to log incoming requests
-
 app.use(
   session({
-    secret: "your-secret-key", // Replace with a strong secret
+    secret: "my-secret-key", // Replace with a strong secret
     resave: false, // Avoid resaving unchanged sessions
     saveUninitialized: false, // Avoid saving empty sessions
     cookie: {
@@ -77,34 +53,33 @@ app.get("/test", async (req, res) => {
     let index, redirectUrl;
     const activeList = list.filter((item) => item.status === "active");
 
+    if (activeList.length == 0) {
+      return res.status(500).send("No active URLs available.");
+    }
+
     if (req.session.url == null) {
-      index = i % activeList.length;
+      index = randomFlag
+        ? getRandomInt(0, activeList.length)
+        : i % activeList.length;
+
       redirectUrl = activeList[index]?.url;
 
       if (!redirectUrl) {
         return res.status(500).send("No active URLs available.");
       }
-
       req.session.url = redirectUrl;
       clicks[redirectUrl] = (clicks[redirectUrl] || 0) + 1;
       ++i;
     } else {
       redirectUrl = req.session.url;
     }
-
     const logEntry = {
       url: redirectUrl,
       ip: req.ip,
       timestamp: new Date(),
     };
-
-    try {
-      const dbLog = new Log(logEntry);
-      await dbLog.save();
-      console.log("Log saved to MongoDB:", dbLog);
-    } catch (err) {
-      console.error("Error saving log to MongoDB:", err.toString());
-    }
+    logs.push(logEntry); // state
+    addLog(logEntry); // db
 
     res.render("redirect", { redirectUrl });
     console.log(`url: ${redirectUrl}`);
@@ -123,6 +98,7 @@ app.get("/clear", async (req, res) => {
     }
     logs.length = 0; // Clear logs
     i = 0;
+    clearLogs(); // db
 
     req.session.destroy((err) => {
       if (err) {
@@ -131,13 +107,6 @@ app.get("/clear", async (req, res) => {
       }
       console.log("Session cleared.");
     });
-
-    try {
-      const result = await Log.deleteMany({});
-      console.log(`${result.deletedCount} logs cleared from the collection.`);
-    } catch (err) {
-      console.error("Error clearing logs:", err.toString());
-    }
 
     res.redirect("/logs");
   } catch (err) {
@@ -154,19 +123,14 @@ app.get("/logs", async (req, res) => {
       clicks: clicks[item.url] || 0,
     }));
 
-    let _logs;
-    try {
-      _logs = await Log.find().sort({ timestamp: -1 }).exec();
-    } catch (err) {
-      console.error("Error fetching logs from MongoDB:", err.toString());
-      _logs = logs; // Fallback to in-memory logs
-    }
+    let _logs = await getLogs(); //db
+    if (_logs == null) _logs = logs; // Fallback to in-memory logs
 
     const activeList = list.filter((item) => item.status === "active");
     const nextLink =
       activeList[i % activeList.length]?.url || "No active links";
 
-    res.render("logs3", { logs: _logs, linksData, nextLink });
+    res.render("logs3", { logs: _logs, linksData, nextLink, randomFlag });
   } catch (err) {
     console.error("Error in /logs route:", err.toString());
     res.status(500).send("An error occurred.");
@@ -225,9 +189,36 @@ app.post("/update-url", express.urlencoded({ extended: true }), (req, res) => {
     res.status(500).send("An error occurred.");
   }
 });
+app.post("/toggle-random-flag", express.json(), (req, res) => {
+  if (!req.body || typeof req.body.randomFlag === "undefined") {
+    // Check if no data or randomFlag is missing
+    return res.status(400).json({
+      success: false,
+      message: "No data provided or randomFlag missing. Expected a boolean.",
+    });
+  }
+
+  if (typeof req.body.randomFlag !== "boolean") {
+    // Check if randomFlag is not a boolean
+    return res.status(400).json({
+      success: false,
+      message: "Invalid data format. Expected a boolean.",
+    });
+  }
+
+  // Update the flag and respond with success
+  randomFlag = req.body.randomFlag;
+  res.json({ success: true, randomFlag });
+});
 
 function totalClick() {
   return Object.values(clicks).reduce((sum, count) => sum + count);
+}
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 app.listen(PORT, () => {
