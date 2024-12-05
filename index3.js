@@ -190,25 +190,17 @@ app.post("/update-url", express.urlencoded({ extended: true }), (req, res) => {
   }
 });
 app.post("/toggle-random-flag", express.json(), (req, res) => {
-  if (!req.body || typeof req.body.randomFlag === "undefined") {
-    // Check if no data or randomFlag is missing
+  try {
+    randomFlag = req.body.randomFlag;
+    res.json({ success: true, randomFlag });
+  } catch (error) {
     return res.status(400).json({
       success: false,
       message: "No data provided or randomFlag missing. Expected a boolean.",
     });
   }
 
-  if (typeof req.body.randomFlag !== "boolean") {
-    // Check if randomFlag is not a boolean
-    return res.status(400).json({
-      success: false,
-      message: "Invalid data format. Expected a boolean.",
-    });
-  }
-
   // Update the flag and respond with success
-  randomFlag = req.body.randomFlag;
-  res.json({ success: true, randomFlag });
 });
 
 function totalClick() {
