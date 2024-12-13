@@ -7,10 +7,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const list = [
-  { url: "https://www.surveycake.com/s/DYxaX", status: "active" },
-  { url: "https://www.surveycake.com/s/PXAwM", status: "active" },
-  { url: "https://www.surveycake.com/s/DYxGe", status: "active" },
-  { url: "https://www.surveycake.com/s/og7N2", status: "active" },
+  { url: "https://www.surveycake.com/s/gAkaB", status: "active" },
+  { url: "https://www.surveycake.com/s/D6RXz", status: "active" },
+  { url: "https://www.surveycake.com/s/gAzD8", status: "active" },
+  { url: "https://www.surveycake.com/s/G6q1P", status: "active" },
 ];
 
 const { connectToDatabase, addLog, clearLogs, getLogs } = require("./db");
